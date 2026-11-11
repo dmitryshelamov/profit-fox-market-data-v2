@@ -40,6 +40,17 @@ public sealed class Coverage
         return new Coverage([.. apart.OrderBy(covered => covered.From)]);
     }
 
+    /// <summary>The covered parts of <paramref name="period" />, in time order.</summary>
+    public IReadOnlyList<TimeRange> Within(TimeRange period)
+    {
+        return
+        [
+            .. Ranges
+                .Where(covered => covered.To > period.From && covered.From < period.To)
+                .Select(covered => new TimeRange(covered.From > period.From ? covered.From : period.From, covered.To < period.To ? covered.To : period.To))
+        ];
+    }
+
     /// <summary>The parts of <paramref name="period" /> outside the coverage, in time order.</summary>
     public IReadOnlyList<TimeRange> Missing(TimeRange period)
     {

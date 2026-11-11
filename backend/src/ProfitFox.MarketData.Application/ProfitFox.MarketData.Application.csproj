@@ -1,7 +1,15 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
         <ProjectReference Include="..\ProfitFox.MarketData.Domain\ProfitFox.MarketData.Domain.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MediatR"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="ProfitFox.MarketData.Tests.Unit"/>
     </ItemGroup>
 
 </Project>
