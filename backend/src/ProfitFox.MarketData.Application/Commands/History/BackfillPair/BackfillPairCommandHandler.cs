@@ -20,13 +20,28 @@ internal sealed class BackfillPairCommandHandler(IExchangeMarketData exchange, I
             ? [SeriesKey.Candles(instrument, Interval.OneMinute), SeriesKey.Of(DataKind.OpenInterest, instrument), SeriesKey.Of(DataKind.Funding, instrument)]
             : [SeriesKey.Candles(instrument, Interval.OneMinute)];
 
+        DateTimeOffset now = time.GetUtcNow();
+
         try
         {
             foreach (SeriesKey key in series)
             {
+                DateTimeOffset until = key.ClosedUntil(now);
+                DateTimeOffset from = until - TimeSpan.FromDays(request.Days);
+
+                if (request.Pair.ListedAt > from)
+                {
+                    from = request.Pair.ListedAt.Value;
+                }
+
+                if (from >= until)
+                {
+                    continue;
+                }
+
                 Coverage coverage = await store.GetCoverageAsync(key, cancellationToken);
 
-                foreach (TimeRange range in HistoryWindowService.Plan(key, request.Pair, coverage, time.GetUtcNow(), request.Days))
+                foreach (TimeRange range in coverage.Missing(new TimeRange(from, until)).Reverse())
                 {
                     await _loader.LoadAsync(key, range, cancellationToken);
                 }

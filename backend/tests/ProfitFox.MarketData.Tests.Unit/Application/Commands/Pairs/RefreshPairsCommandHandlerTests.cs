@@ -37,32 +37,34 @@ public class RefreshPairsCommandHandlerTests
     [Test]
     public void New_pair_of_the_list_is_saved_and_collected()
     {
-        _pairs.GetAllAsync(Arg.Any<CancellationToken>()).Returns([new MarketPair(Eth, true, null)]);
+        _pairs.GetAllAsync(Arg.Any<CancellationToken>()).Returns([new MarketPair(Eth, Listed: true, ListedAt: null)]);
         List(MarketCategory.Spot, Listed(Eth));
         List(MarketCategory.Linear, Listed(Btc) with { ListedAt = Launch });
 
         IReadOnlyList<MarketPair> listed = Refresh();
 
-        listed.ShouldBe([new MarketPair(Eth, true, null), new MarketPair(Btc, true, Launch)], ignoreOrder: true);
-        _pairs.Received(1).SaveAsync(
-            Arg.Is<IReadOnlyCollection<MarketPair>>(changed => changed!.SequenceEqual(new[] { new MarketPair(Btc, true, Launch) })),
-            Arg.Any<CancellationToken>());
+        listed.ShouldBe([new MarketPair(Eth, Listed: true, ListedAt: null), new MarketPair(Btc, Listed: true, Launch)], ignoreOrder: true);
+        _pairs.Received(1)
+            .SaveAsync(
+                Arg.Is<IReadOnlyCollection<MarketPair>>(changed => changed!.SequenceEqual(new[] { new MarketPair(Btc, true, Launch) })),
+                Arg.Any<CancellationToken>());
     }
 
     // Scenario «Пара снята с торгов».
     [Test]
     public void Vanished_pair_is_saved_as_not_listed_and_no_longer_collected()
     {
-        _pairs.GetAllAsync(Arg.Any<CancellationToken>()).Returns([new MarketPair(Btc, true, Launch), new MarketPair(Sol, true, null)]);
+        _pairs.GetAllAsync(Arg.Any<CancellationToken>()).Returns([new MarketPair(Btc, Listed: true, Launch), new MarketPair(Sol, Listed: true, ListedAt: null)]);
         List(MarketCategory.Spot);
         List(MarketCategory.Linear, Listed(Btc) with { ListedAt = Launch });
 
         IReadOnlyList<MarketPair> listed = Refresh();
 
-        listed.ShouldBe([new MarketPair(Btc, true, Launch)]);
-        _pairs.Received(1).SaveAsync(
-            Arg.Is<IReadOnlyCollection<MarketPair>>(changed => changed!.SequenceEqual(new[] { new MarketPair(Sol, false, null) })),
-            Arg.Any<CancellationToken>());
+        listed.ShouldBe([new MarketPair(Btc, Listed: true, Launch)]);
+        _pairs.Received(1)
+            .SaveAsync(
+                Arg.Is<IReadOnlyCollection<MarketPair>>(changed => changed!.SequenceEqual(new[] { new MarketPair(Sol, false, null) })),
+                Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -74,7 +76,7 @@ public class RefreshPairsCommandHandlerTests
 
         IReadOnlyList<MarketPair> listed = Refresh(["BTCUSDT"]);
 
-        listed.ShouldBe([new MarketPair(Btc, true, null)]);
+        listed.ShouldBe([new MarketPair(Btc, Listed: true, ListedAt: null)]);
     }
 
     private IReadOnlyList<MarketPair> Refresh(IReadOnlyCollection<string>? symbols = null)
@@ -89,6 +91,6 @@ public class RefreshPairsCommandHandlerTests
 
     private static ListedInstrument Listed(Instrument instrument)
     {
-        return new ListedInstrument(instrument.Category, instrument.Symbol, "USDT", Trading: true, Perpetual: instrument.Category == MarketCategory.Linear);
+        return new ListedInstrument(instrument.Category, instrument.Symbol, "USDT", Trading: true, instrument.Category == MarketCategory.Linear);
     }
 }

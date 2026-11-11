@@ -6,8 +6,8 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
 using ProfitFox.MarketData.Application.Exceptions;
-using ProfitFox.MarketData.Application.Queries.History.GetHistory;
 using ProfitFox.MarketData.Application.Ports;
+using ProfitFox.MarketData.Application.Queries.History.GetHistory;
 using ProfitFox.MarketData.Domain.Entities;
 using ProfitFox.MarketData.Domain.Entities.Enums;
 using ProfitFox.MarketData.Domain.Repositories;
@@ -35,7 +35,7 @@ public class GetHistoryQueryHandlerTests
         _exchange = Substitute.For<IExchangeMarketData>();
         _store = Substitute.For<IMarketStore>();
         _pairs = Substitute.For<IMarketPairRepository>();
-        _pairs.FindAsync(Eth, Arg.Any<CancellationToken>()).Returns(new MarketPair(Eth, true, null));
+        _pairs.FindAsync(Eth, Arg.Any<CancellationToken>()).Returns(new MarketPair(Eth, Listed: true, ListedAt: null));
         _store.GetCoverageAsync(Arg.Any<SeriesKey>(), Arg.Any<CancellationToken>()).Returns(Coverage.Empty);
         _store.ReadAsync(Arg.Any<SeriesKey>(), Arg.Any<TimeRange>(), Arg.Any<CancellationToken>()).Returns(SeriesRows.Empty);
         _handler = new GetHistoryQueryHandler(_exchange, _store, _pairs, new FakeTimeProvider(Now));
@@ -46,7 +46,7 @@ public class GetHistoryQueryHandlerTests
     public void Period_inside_the_coverage_is_read_without_the_exchange()
     {
         var period = new TimeRange(Time("2026-11-09T00:00:00Z"), Time("2026-11-10T00:00:00Z"));
-        var minutes = SeriesKey.Candles(Eth, Interval.OneMinute);
+        SeriesKey minutes = SeriesKey.Candles(Eth, Interval.OneMinute);
         SeriesRows stored = SeriesRows.OfCandles([Candle(period.From)]);
         _store.GetCoverageAsync(minutes, Arg.Any<CancellationToken>()).Returns(Coverage.Empty.Add(new TimeRange(period.From.AddDays(-1), period.To.AddDays(1))));
         _store.ReadAsync(minutes, period, Arg.Any<CancellationToken>()).Returns(stored);
@@ -93,7 +93,7 @@ public class GetHistoryQueryHandlerTests
         TimeRange period = Day("2026-04-01");
         var covered = new TimeRange(period.From.AddHours(6), period.From.AddHours(18));
         _store.GetCoverageAsync(Hours, Arg.Any<CancellationToken>()).Returns(Coverage.Empty.Add(covered));
-        _exchange.GetCandlesAsync(default!, default, default, default, default).ReturnsForAnyArgs([]);
+        _exchange.GetCandlesAsync(default!, interval: default, from: default, to: default, cancellationToken: default).ReturnsForAnyArgs([]);
 
         Get(Hours, period);
 
@@ -102,31 +102,12 @@ public class GetHistoryQueryHandlerTests
         _exchange.ReceivedCalls().Count().ShouldBe(2);
     }
 
-    // A page of the exchange holds at most 1000 candles: a longer period goes page by page from new to old, each page stored as it comes.
-    [Test]
-    public void Long_period_is_loaded_in_pages_of_a_thousand_candles_from_new_to_old()
-    {
-        var period = new TimeRange(Time("2026-01-01T00:00:00Z"), Time("2026-01-01T00:00:00Z").AddHours(1500));
-        DateTimeOffset split = period.To.AddHours(-1000);
-        _exchange.GetCandlesAsync(default!, default, default, default, default).ReturnsForAnyArgs([]);
-
-        Get(Hours, period);
-
-        Received.InOrder(() =>
-        {
-            _exchange.GetCandlesAsync(Eth, Interval.OneHour, split, period.To, Arg.Any<CancellationToken>());
-            _store.ReplaceAsync(Hours, new TimeRange(split, period.To), Arg.Any<SeriesRows>(), Arg.Any<CancellationToken>());
-            _exchange.GetCandlesAsync(Eth, Interval.OneHour, period.From, split, Arg.Any<CancellationToken>());
-            _store.ReplaceAsync(Hours, new TimeRange(period.From, split), Arg.Any<SeriesRows>(), Arg.Any<CancellationToken>());
-        });
-    }
-
     // The candle that is still forming is never loaded: its period stays outside the coverage.
     [Test]
     public void Candles_are_loaded_up_to_the_start_of_the_forming_one()
     {
         var period = new TimeRange(Time("2026-11-10T10:00:00Z"), Time("2026-11-10T14:00:00Z"));
-        _exchange.GetCandlesAsync(default!, default, default, default, default).ReturnsForAnyArgs([]);
+        _exchange.GetCandlesAsync(default!, interval: default, from: default, to: default, cancellationToken: default).ReturnsForAnyArgs([]);
 
         Get(Hours, period);
 
@@ -151,38 +132,40 @@ public class GetHistoryQueryHandlerTests
         result.Coverage.ShouldBeEmpty();
         result.ExchangeUnavailable.ShouldBeFalse();
         _exchange.ReceivedCalls().ShouldBeEmpty();
-        _store.DidNotReceiveWithAnyArgs().ReplaceAsync(default!, default!, default!, default);
+        _store.DidNotReceiveWithAnyArgs().ReplaceAsync(default!, default!, default!, cancellationToken: default);
     }
 
     [Test]
     public void Open_interest_is_loaded_in_one_request_up_to_the_current_step()
     {
         var period = new TimeRange(Time("2026-11-10T12:00:00Z"), Time("2026-11-10T13:00:00Z"));
-        var series = SeriesKey.Of(DataKind.OpenInterest, Eth);
-        OpenInterestPoint[] points = [new OpenInterestPoint(period.From, 10m)];
+        SeriesKey series = SeriesKey.Of(DataKind.OpenInterest, Eth);
+        OpenInterestPoint[] points = [new OpenInterestPoint(period.From, Value: 10m)];
         _exchange.GetOpenInterestAsync(Eth, period.From, Time("2026-11-10T12:30:00Z"), Arg.Any<CancellationToken>()).Returns(points);
         var handler = new GetHistoryQueryHandler(_exchange, _store, _pairs, new FakeTimeProvider(Time("2026-11-10T12:34:10Z")));
 
         handler.Handle(new GetHistoryQuery(series, period), CancellationToken.None).GetAwaiter().GetResult();
 
-        _store.Received(1).ReplaceAsync(
-            series,
-            new TimeRange(period.From, Time("2026-11-10T12:30:00Z")),
-            Arg.Is<SeriesRows>(rows => rows!.OpenInterest.SequenceEqual(points)),
-            Arg.Any<CancellationToken>());
+        _store.Received(1)
+            .ReplaceAsync(
+                series,
+                new TimeRange(period.From, Time("2026-11-10T12:30:00Z")),
+                Arg.Is<SeriesRows>(rows => rows!.OpenInterest.SequenceEqual(points)),
+                Arg.Any<CancellationToken>());
     }
 
     [Test]
     public void Funding_is_loaded_in_one_request_up_to_now()
     {
         var period = new TimeRange(Time("2026-11-10T00:00:00Z"), Time("2026-11-11T00:00:00Z"));
-        var series = SeriesKey.Of(DataKind.Funding, Eth);
-        FundingRatePoint[] rates = [new FundingRatePoint(Time("2026-11-10T08:00:00Z"), 0.0001m)];
+        SeriesKey series = SeriesKey.Of(DataKind.Funding, Eth);
+        FundingRatePoint[] rates = [new FundingRatePoint(Time("2026-11-10T08:00:00Z"), Rate: 0.0001m)];
         _exchange.GetFundingAsync(Eth, period.From, Now, Arg.Any<CancellationToken>()).Returns(rates);
 
         Get(series, period);
 
-        _store.Received(1).ReplaceAsync(series, new TimeRange(period.From, Now), Arg.Is<SeriesRows>(rows => rows!.Funding.SequenceEqual(rates)), Arg.Any<CancellationToken>());
+        _store.Received(1)
+            .ReplaceAsync(series, new TimeRange(period.From, Now), Arg.Is<SeriesRows>(rows => rows!.Funding.SequenceEqual(rates)), Arg.Any<CancellationToken>());
     }
 
     // Scenario «Биржа не отвечает»: what storage holds comes back with the mark, without waiting for the exchange.
@@ -192,13 +175,13 @@ public class GetHistoryQueryHandlerTests
     {
         TimeRange period = Day("2026-04-01");
         Exception failure = rateLimited ? new ExchangeRateLimitedException("limit") : new ExchangeUnavailableException("down");
-        _exchange.GetCandlesAsync(default!, default, default, default, default).ThrowsAsyncForAnyArgs(failure);
+        _exchange.GetCandlesAsync(default!, interval: default, from: default, to: default, cancellationToken: default).ThrowsAsyncForAnyArgs(failure);
 
         HistoryResult result = Get(Hours, period);
 
         result.ExchangeUnavailable.ShouldBeTrue();
         result.Coverage.ShouldBeEmpty();
-        _store.DidNotReceiveWithAnyArgs().ReplaceAsync(default!, default!, default!, default);
+        _store.DidNotReceiveWithAnyArgs().ReplaceAsync(default!, default!, default!, cancellationToken: default);
     }
 
     [Test]
@@ -207,7 +190,8 @@ public class GetHistoryQueryHandlerTests
         TimeRange period = Day("2026-04-01");
         var covered = new TimeRange(period.From.AddHours(6), period.From.AddHours(18));
         _store.GetCoverageAsync(Hours, Arg.Any<CancellationToken>()).Returns(Coverage.Empty.Add(covered));
-        _exchange.GetCandlesAsync(default!, default, default, default, default).ThrowsAsyncForAnyArgs(new ExchangeUnavailableException("down"));
+        _exchange.GetCandlesAsync(default!, interval: default, from: default, to: default, cancellationToken: default)
+            .ThrowsAsyncForAnyArgs(new ExchangeUnavailableException("down"));
 
         Get(Hours, period);
 
@@ -221,7 +205,7 @@ public class GetHistoryQueryHandlerTests
 
     private static Candle Candle(DateTimeOffset openTime)
     {
-        return new Candle(openTime, 100m, 110m, 90m, 105m, 3m, 315m);
+        return new Candle(openTime, Open: 100m, High: 110m, Low: 90m, Close: 105m, Volume: 3m, Turnover: 315m);
     }
 
     private static TimeRange Day(string day)

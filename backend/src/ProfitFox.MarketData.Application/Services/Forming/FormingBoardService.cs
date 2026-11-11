@@ -5,19 +5,18 @@ namespace ProfitFox.MarketData.Application.Services.Forming;
 
 /// <summary>
 ///     The forming values of every pair in memory only: each update replaces the last one, so a reader gets the latest value whenever it
-///     reads, however many updates it missed. A version counts every update; a reader passes the version it read up to. Thread-safe.
+///     reads, however many updates it missed. Thread-safe.
 /// </summary>
 public sealed class FormingBoardService
 {
     private readonly Lock _lock = new Lock();
-    private readonly Dictionary<Instrument, (FormingValue Value, long Version)> _values = [];
-    private long _version;
+    private readonly Dictionary<Instrument, FormingValue> _values = [];
 
     public void Update(Instrument instrument, Candle forming)
     {
         lock (_lock)
         {
-            _values[instrument] = (Current(instrument) with { Candle = forming }, ++_version);
+            _values[instrument] = Current(instrument) with { Candle = forming };
         }
     }
 
@@ -25,24 +24,21 @@ public sealed class FormingBoardService
     {
         lock (_lock)
         {
-            _values[instrument] = (Current(instrument) with { Trades = current }, ++_version);
+            _values[instrument] = Current(instrument) with { Trades = current };
         }
     }
 
-    /// <summary>The values of <paramref name="pairs" /> updated after <paramref name="since" />, and the version to read from next time.</summary>
-    public (IReadOnlyList<FormingValue> Values, long Version) Changed(IReadOnlyCollection<Instrument> pairs, long since)
+    /// <summary>The current values of the pairs of <paramref name="pairs" /> that have any.</summary>
+    public IReadOnlyList<FormingValue> Get(IReadOnlyCollection<Instrument> pairs)
     {
         lock (_lock)
         {
-            FormingValue[] changed =
-                [.. pairs.Where(_values.ContainsKey).Select(pair => _values[pair]).Where(entry => entry.Version > since).Select(entry => entry.Value)];
-
-            return (changed, _version);
+            return [.. pairs.Where(_values.ContainsKey).Select(pair => _values[pair])];
         }
     }
 
     private FormingValue Current(Instrument instrument)
     {
-        return _values.TryGetValue(instrument, out (FormingValue Value, long Version) entry) ? entry.Value : new FormingValue(instrument, null, null);
+        return _values.GetValueOrDefault(instrument) ?? new FormingValue(instrument, Candle: null, Trades: null);
     }
 }

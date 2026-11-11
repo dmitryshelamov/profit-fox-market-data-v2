@@ -26,27 +26,12 @@ public class FormingBoardServiceTests
 
     // Scenario «Один открытый график»: of several updates between two reads only the last one comes.
     [Test]
-    public void Updates_between_two_reads_come_as_the_last_one()
+    public void Update_replaces_the_last_value()
     {
         _board.Update(Btc, Candle(105m));
         _board.Update(Btc, Candle(106m));
 
-        (IReadOnlyList<FormingValue> values, _) = _board.Changed([Btc], since: 0);
-
-        values.Single().Candle.ShouldBe(Candle(106m));
-    }
-
-    // Scenario «Медленный клиент живой свечи»: a reader that comes back reads the last value.
-    [Test]
-    public void Read_after_the_last_version_gets_nothing_until_the_next_update()
-    {
-        _board.Update(Btc, Candle(105m));
-        (_, long version) = _board.Changed([Btc], since: 0);
-
-        _board.Changed([Btc], version).Values.ShouldBeEmpty();
-
-        _board.Update(Btc, Candle(107m));
-        _board.Changed([Btc], version).Values.Single().Candle.ShouldBe(Candle(107m));
+        _board.Get([Btc]).Single().Candle.ShouldBe(Candle(106m));
     }
 
     [Test]
@@ -55,7 +40,7 @@ public class FormingBoardServiceTests
         _board.Update(Btc, Candle(105m));
         _board.Update(Sol, Candle(150m));
 
-        _board.Changed([Sol], since: 0).Values.Select(value => value.Instrument).ShouldBe([Sol]);
+        _board.Get([Sol]).Select(value => value.Instrument).ShouldBe([Sol]);
     }
 
     [Test]
@@ -63,17 +48,17 @@ public class FormingBoardServiceTests
     {
         _board.Update(Btc, Candle(105m));
 
-        _board.Changed([Btc, Sol], since: 0).Values.Select(value => value.Instrument).ShouldBe([Btc]);
+        _board.Get([Btc, Sol]).Select(value => value.Instrument).ShouldBe([Btc]);
     }
 
     [Test]
     public void Forming_candle_and_current_minute_of_trades_of_a_pair_come_together()
     {
-        var trades = new TradeFlowMinute(Minute, 1m, 2m, 105m, 210m, 1, 1);
+        var trades = new TradeFlowMinute(Minute, BuyVolume: 1m, SellVolume: 2m, BuyTurnover: 105m, SellTurnover: 210m, BuyTrades: 1, SellTrades: 1);
         _board.Update(Btc, Candle(105m));
         _board.Update(Btc, trades);
 
-        FormingValue value = _board.Changed([Btc], since: 0).Values.Single();
+        FormingValue value = _board.Get([Btc]).Single();
 
         value.Candle.ShouldBe(Candle(105m));
         value.Trades.ShouldBe(trades);
@@ -81,6 +66,6 @@ public class FormingBoardServiceTests
 
     private static Candle Candle(decimal close)
     {
-        return new Candle(Minute, 100m, 110m, 90m, close, 3m, 315m);
+        return new Candle(Minute, Open: 100m, High: 110m, Low: 90m, close, Volume: 3m, Turnover: 315m);
     }
 }

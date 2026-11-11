@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using ProfitFox.MarketData.Domain.Entities.Enums;
 using ProfitFox.MarketData.Domain.ValueObjects;
 
@@ -38,9 +40,36 @@ public class SeriesKeyTests
         key.Interval.ShouldBeNull();
     }
 
+    // The candle still forming is not closed yet.
+    [Test]
+    public void Candles_are_closed_up_to_the_start_of_the_forming_one()
+    {
+        SeriesKey.Candles(Btc, Interval.OneHour).ClosedUntil(Time("2026-11-10T12:34:10Z")).ShouldBe(Time("2026-11-10T12:00:00Z"));
+    }
+
+    // The point of the current step of open interest may not be known yet.
+    [Test]
+    public void Open_interest_is_closed_up_to_the_start_of_the_current_step()
+    {
+        SeriesKey.Of(DataKind.OpenInterest, Btc).ClosedUntil(Time("2026-11-10T12:34:10Z")).ShouldBe(Time("2026-11-10T12:30:00Z"));
+    }
+
+    [TestCase(DataKind.Funding)]
+    [TestCase(DataKind.Liquidations)]
+    [TestCase(DataKind.TradeFlow)]
+    public void Other_series_are_closed_up_to_now(DataKind kind)
+    {
+        SeriesKey.Of(kind, Btc).ClosedUntil(Time("2026-11-10T12:34:10Z")).ShouldBe(Time("2026-11-10T12:34:10Z"));
+    }
+
     [Test]
     public void Candles_without_an_interval_are_refused()
     {
         Should.Throw<ArgumentException>(() => SeriesKey.Of(DataKind.Candles, Btc));
+    }
+
+    private static DateTimeOffset Time(string text)
+    {
+        return DateTimeOffset.Parse(text, CultureInfo.InvariantCulture);
     }
 }

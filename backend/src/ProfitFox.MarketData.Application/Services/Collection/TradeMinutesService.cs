@@ -21,7 +21,7 @@ public sealed class TradeMinutesService(TimeProvider time)
 
     public void Add(Instrument instrument, TradeEvent trade)
     {
-        var started = TradeFlowMinute.Start(trade);
+        TradeFlowMinute started = TradeFlowMinute.Start(trade);
 
         lock (_lock)
         {
@@ -42,7 +42,7 @@ public sealed class TradeMinutesService(TimeProvider time)
 
         lock (_lock)
         {
-            _closedUntil = new DateTimeOffset(due.UtcTicks - (due.UtcTicks % MinuteTicks), TimeSpan.Zero);
+            _closedUntil = new DateTimeOffset(due.UtcTicks - due.UtcTicks % MinuteTicks, TimeSpan.Zero);
             (Instrument Instrument, TradeFlowMinute Minute)[] closed =
                 [.. _minutes.Where(entry => entry.Key.OpenTime < _closedUntil).Select(entry => (entry.Key.Instrument, entry.Value))];
 

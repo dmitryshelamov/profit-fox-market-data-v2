@@ -24,11 +24,11 @@ internal sealed class GetHistoryQueryHandler(IExchangeMarketData exchange, IMark
         }
 
         Coverage coverage = await store.GetCoverageAsync(series, cancellationToken);
-        bool unavailable = false;
+        var unavailable = false;
 
         if (HistoryLoaderService.Loads(series.Kind))
         {
-            DateTimeOffset closedUntil = HistoryLoaderService.ClosedUntil(series, time.GetUtcNow());
+            DateTimeOffset closedUntil = series.ClosedUntil(time.GetUtcNow());
             TimeRange[] missing = [.. coverage.Missing(request.Period).Where(range => range.From < closedUntil)];
 
             foreach (TimeRange range in missing)

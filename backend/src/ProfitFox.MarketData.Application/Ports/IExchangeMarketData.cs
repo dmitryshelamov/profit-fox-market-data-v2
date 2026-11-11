@@ -16,7 +16,7 @@ public interface IExchangeMarketData
     /// <summary>Every instrument the exchange lists in the category.</summary>
     Task<IReadOnlyList<ListedInstrument>> ListInstrumentsAsync(MarketCategory category, CancellationToken cancellationToken);
 
-    /// <summary>At most 1000 newest closed candles of the interval with open time in <c>[from, to)</c>, oldest first, in one request.</summary>
+    /// <summary>Every closed candle of the interval with open time in <c>[from, to)</c>, oldest first; the adapter goes page by page.</summary>
     Task<IReadOnlyList<Candle>> GetCandlesAsync(Instrument instrument, Interval interval, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
 
     /// <summary>The 5 minute points of open interest of a linear pair in <c>[from, to)</c>, oldest first.</summary>

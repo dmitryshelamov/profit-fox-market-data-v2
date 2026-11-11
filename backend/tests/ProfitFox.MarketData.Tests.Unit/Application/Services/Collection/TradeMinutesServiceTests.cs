@@ -31,21 +31,22 @@ public class TradeMinutesServiceTests
     [Test]
     public void Minute_goes_out_five_seconds_after_its_end_with_its_trades_added_up()
     {
-        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, 2m, 150m));
-        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(30), TradeSide.Sell, 3m, 149m));
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, Quantity: 2m, Price: 150m));
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(30), TradeSide.Sell, Quantity: 3m, Price: 149m));
 
         _time.SetUtcNow(Minute.AddSeconds(64));
         _minutes.TakeClosed().ShouldBeEmpty();
 
         _time.SetUtcNow(Minute.AddSeconds(65));
-        _minutes.TakeClosed().ShouldBe([(Btc, new TradeFlowMinute(Minute, 2m, 3m, 300m, 447m, 1, 1))]);
+        _minutes.TakeClosed()
+            .ShouldBe([(Btc, new TradeFlowMinute(Minute, BuyVolume: 2m, SellVolume: 3m, BuyTurnover: 300m, SellTurnover: 447m, BuyTrades: 1, SellTrades: 1))]);
     }
 
     [Test]
     public void Minutes_of_every_pair_go_out_together()
     {
-        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, 1m, 150m));
-        _minutes.Add(Sol, new TradeEvent(Minute.AddSeconds(2), TradeSide.Buy, 1m, 20m));
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, Quantity: 1m, Price: 150m));
+        _minutes.Add(Sol, new TradeEvent(Minute.AddSeconds(2), TradeSide.Buy, Quantity: 1m, Price: 20m));
 
         _time.SetUtcNow(Minute.AddSeconds(65));
 
@@ -55,7 +56,7 @@ public class TradeMinutesServiceTests
     [Test]
     public void Minute_that_went_out_does_not_go_out_again()
     {
-        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, 1m, 150m));
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, Quantity: 1m, Price: 150m));
         _time.SetUtcNow(Minute.AddSeconds(65));
         _minutes.TakeClosed();
 
@@ -65,9 +66,9 @@ public class TradeMinutesServiceTests
     [Test]
     public void Minute_still_open_stays()
     {
-        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, 1m, 150m));
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, Quantity: 1m, Price: 150m));
         _time.SetUtcNow(Minute.AddSeconds(65));
-        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(62), TradeSide.Sell, 1m, 151m));
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(62), TradeSide.Sell, Quantity: 1m, Price: 151m));
 
         _minutes.TakeClosed().Single().Minute.OpenTime.ShouldBe(Minute);
 
@@ -79,10 +80,10 @@ public class TradeMinutesServiceTests
     [Test]
     public void Trade_of_a_minute_that_went_out_is_dropped()
     {
-        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, 1m, 150m));
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, Quantity: 1m, Price: 150m));
         _time.SetUtcNow(Minute.AddSeconds(65));
         _minutes.TakeClosed();
-        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(59), TradeSide.Sell, 1m, 150m));
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(59), TradeSide.Sell, Quantity: 1m, Price: 150m));
 
         _time.SetUtcNow(Minute.AddSeconds(125));
 

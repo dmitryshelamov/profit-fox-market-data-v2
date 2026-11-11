@@ -19,7 +19,7 @@ internal sealed class RefreshPairsCommandHandler(IExchangeMarketData exchange, I
         IReadOnlyList<MarketPair> known = await pairs.GetAllAsync(cancellationToken);
         IReadOnlyList<MarketPair> changed = PairUniverse.Merge(known, PairUniverse.Select([.. spot, .. linear], request.Symbols));
         await pairs.SaveAsync(changed, cancellationToken);
-        var byInstrument = known.ToDictionary(pair => pair.Instrument);
+        Dictionary<Instrument, MarketPair> byInstrument = known.ToDictionary(pair => pair.Instrument);
 
         foreach (MarketPair pair in changed)
         {
