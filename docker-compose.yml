@@ -1,0 +1,17 @@
+# Local development database of the market data service. Integration tests use the same image tag via Testcontainers.
+# The credentials are local-only and match appsettings.Development.json; the port is bound to localhost. Port 5433, so the
+# database of profit-fox on 5432 can run at the same time.
+services:
+  timescaledb:
+    image: timescale/timescaledb:2.30.2-pg17
+    environment:
+      POSTGRES_DB: marketdata
+      POSTGRES_USER: marketdata
+      POSTGRES_PASSWORD: marketdata
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+
+volumes:
+  timescaledb-data:
