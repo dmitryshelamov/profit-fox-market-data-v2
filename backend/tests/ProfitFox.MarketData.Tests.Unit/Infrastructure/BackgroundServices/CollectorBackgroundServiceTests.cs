@@ -30,9 +30,16 @@ public class CollectorBackgroundServiceTests
         using var service = new CollectorBackgroundService(
             new CollectorSessionService(mediator, streams, writer, Substitute.For<IExchangeMarketData>(), journal, new CollectorSettings(), time));
 
+        // The host runs the collector in the background: the start returns before the collector reads the list.
         await service.StartAsync(CancellationToken.None);
-        await service.StopAsync(CancellationToken.None);
+        DateTime until = DateTime.UtcNow + TimeSpan.FromSeconds(10);
 
+        while (!mediator.ReceivedCalls().Any() && DateTime.UtcNow < until)
+        {
+            await Task.Delay(10);
+        }
+
+        await service.StopAsync(CancellationToken.None);
         await mediator.Received(1).Send(Arg.Any<RefreshPairsCommand>(), Arg.Any<CancellationToken>());
     }
 }
