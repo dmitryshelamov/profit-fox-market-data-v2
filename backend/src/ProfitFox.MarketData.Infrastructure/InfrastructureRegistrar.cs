@@ -1,5 +1,3 @@
-using Bybit.Net;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,13 +25,7 @@ public static class InfrastructureRegistrar
 
         services.AddSingleton(TimeProvider.System);
         BybitSettings bybit = configuration.GetSection("Bybit").Get<BybitSettings>() ?? new BybitSettings();
-        services.AddBybit(options =>
-        {
-            if (!string.IsNullOrEmpty(bybit.RestAddress))
-            {
-                options.Rest.Environment = BybitEnvironment.CreateCustom("market-data", bybit.RestAddress, BybitEnvironment.Live.SocketBaseAddress);
-            }
-        });
+        services.AddBybit(options => options.Rest.Environment = bybit.Environment());
 
         // Only the gate follows a change of the settings while the service runs.
         services.Configure<RestSettings>(configuration.GetSection("MarketData:Rest"));
