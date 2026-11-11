@@ -4,6 +4,8 @@ using ProfitFox.MarketData.Application.Services.Forming;
 using ProfitFox.MarketData.Domain.Entities;
 using ProfitFox.MarketData.Domain.Entities.Enums;
 using ProfitFox.MarketData.Domain.ValueObjects;
+using ProfitFox.MarketData.Tests.Shared.Generators.Domain.Entity;
+using ProfitFox.MarketData.Tests.Shared.Generators.Domain.ValueObject;
 
 using Shouldly;
 
@@ -28,17 +30,18 @@ public class FormingBoardServiceTests
     [Test]
     public void Update_replaces_the_last_value()
     {
-        _board.Update(Btc, Candle(105m));
-        _board.Update(Btc, Candle(106m));
+        Candle last = CandleGenerator.Generate(Minute);
+        _board.Update(Btc, CandleGenerator.Generate(Minute));
+        _board.Update(Btc, last);
 
-        _board.Get([Btc]).Single().Candle.ShouldBe(Candle(106m));
+        _board.Get([Btc]).Single().Candle.ShouldBe(last);
     }
 
     [Test]
     public void Only_the_pairs_asked_for_are_read()
     {
-        _board.Update(Btc, Candle(105m));
-        _board.Update(Sol, Candle(150m));
+        _board.Update(Btc, CandleGenerator.Generate(Minute));
+        _board.Update(Sol, CandleGenerator.Generate(Minute));
 
         _board.Get([Sol]).Select(value => value.Instrument).ShouldBe([Sol]);
     }
@@ -46,7 +49,7 @@ public class FormingBoardServiceTests
     [Test]
     public void Pair_without_updates_is_not_read()
     {
-        _board.Update(Btc, Candle(105m));
+        _board.Update(Btc, CandleGenerator.Generate(Minute));
 
         _board.Get([Btc, Sol]).Select(value => value.Instrument).ShouldBe([Btc]);
     }
@@ -54,18 +57,14 @@ public class FormingBoardServiceTests
     [Test]
     public void Forming_candle_and_current_minute_of_trades_of_a_pair_come_together()
     {
-        var trades = new TradeFlowMinute(Minute, BuyVolume: 1m, SellVolume: 2m, BuyTurnover: 105m, SellTurnover: 210m, BuyTrades: 1, SellTrades: 1);
-        _board.Update(Btc, Candle(105m));
+        TradeFlowMinute trades = TradeFlowMinuteGenerator.Generate(Minute);
+        Candle candle = CandleGenerator.Generate(Minute);
+        _board.Update(Btc, candle);
         _board.Update(Btc, trades);
 
         FormingValue value = _board.Get([Btc]).Single();
 
-        value.Candle.ShouldBe(Candle(105m));
+        value.Candle.ShouldBe(candle);
         value.Trades.ShouldBe(trades);
-    }
-
-    private static Candle Candle(decimal close)
-    {
-        return new Candle(Minute, Open: 100m, High: 110m, Low: 90m, close, Volume: 3m, Turnover: 315m);
     }
 }

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Time.Testing;
 using ProfitFox.MarketData.Application.Services.Collection;
 using ProfitFox.MarketData.Domain.Entities.Enums;
 using ProfitFox.MarketData.Domain.ValueObjects;
+using ProfitFox.MarketData.Tests.Shared.Generators.Domain.ValueObject;
 
 using Shouldly;
 
@@ -45,8 +46,8 @@ public class TradeMinutesServiceTests
     [Test]
     public void Minutes_of_every_pair_go_out_together()
     {
-        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, Quantity: 1m, Price: 150m));
-        _minutes.Add(Sol, new TradeEvent(Minute.AddSeconds(2), TradeSide.Buy, Quantity: 1m, Price: 20m));
+        _minutes.Add(Btc, TradeEventGenerator.Generate(Minute.AddSeconds(1)));
+        _minutes.Add(Sol, TradeEventGenerator.Generate(Minute.AddSeconds(2)));
 
         _time.SetUtcNow(Minute.AddSeconds(65));
 
