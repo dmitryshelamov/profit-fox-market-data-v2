@@ -1,10 +1,13 @@
 using Dapper;
 
+using FluentMigrator;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 using Npgsql;
 
+using ProfitFox.MarketData.Infrastructure.Persistence.Postgres.FluentMigrator.Migrations;
 using ProfitFox.MarketData.Presentation;
 
 using Shouldly;
@@ -39,7 +42,8 @@ public class StartupMigrationTests
         _ = second.Server;
 
         await using var connection = new NpgsqlConnection(connectionString);
-        (await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM \"VersionInfo\"")).ShouldBe(1);
+        int migrations = typeof(CreateMarketStoreTablesMigration).Assembly.GetTypes().Count(type => type.IsDefined(typeof(MigrationAttribute), inherit: false));
+        (await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM \"VersionInfo\"")).ShouldBe(migrations);
     }
 
     private static WebApplicationFactory<Program> Service(string connectionString)

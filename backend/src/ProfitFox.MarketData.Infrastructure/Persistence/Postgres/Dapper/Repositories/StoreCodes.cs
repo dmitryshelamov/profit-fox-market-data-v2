@@ -59,6 +59,16 @@ internal static class StoreCodes
         return Kinds[kind];
     }
 
+    public static string ToCode(this LiveStream stream)
+    {
+        return stream switch
+        {
+            LiveStream.Candles => "candles",
+            LiveStream.Trades => "trades",
+            _ => "liquidations"
+        };
+    }
+
     public static string ToCode(this LiquidationSide side)
     {
         return side == LiquidationSide.Long ? "long" : "short";

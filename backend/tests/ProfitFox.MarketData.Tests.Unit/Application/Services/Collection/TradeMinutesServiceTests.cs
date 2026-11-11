@@ -84,10 +84,20 @@ public class TradeMinutesServiceTests
         _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, Quantity: 1m, Price: 150m));
         _time.SetUtcNow(Minute.AddSeconds(65));
         _minutes.TakeClosed();
-        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(59), TradeSide.Sell, Quantity: 1m, Price: 150m));
+
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(59), TradeSide.Sell, Quantity: 1m, Price: 150m)).ShouldBeNull();
 
         _time.SetUtcNow(Minute.AddSeconds(125));
-
         _minutes.TakeClosed().ShouldBeEmpty();
+    }
+
+    // Decision 12: the current minute of trades goes to the board of forming values.
+    [Test]
+    public void Trade_gives_its_minute_so_far()
+    {
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(1), TradeSide.Buy, Quantity: 2m, Price: 150m));
+
+        _minutes.Add(Btc, new TradeEvent(Minute.AddSeconds(2), TradeSide.Sell, Quantity: 3m, Price: 149m))
+            .ShouldBe(new TradeFlowMinute(Minute, BuyVolume: 2m, SellVolume: 3m, BuyTurnover: 300m, SellTurnover: 447m, BuyTrades: 1, SellTrades: 1));
     }
 }
