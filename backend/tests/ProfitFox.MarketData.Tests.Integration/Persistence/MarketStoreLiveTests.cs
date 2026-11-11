@@ -147,6 +147,21 @@ public class MarketStoreLiveTests
         (await _store.GetCoverageAsync(liquidations, CancellationToken.None)).Ranges.ShouldBe([MinuteRange(0)]);
     }
 
+    // Scenario «Точка открытого интереса»: the point of a step from the tickers, once, with the coverage of its step.
+    [Test]
+    public async Task Open_interest_point_written_twice_is_stored_once_with_the_coverage_of_the_batch()
+    {
+        var point = new OpenInterestPoint(Minute.AddMinutes(1), Value: 51234.567m);
+        SeriesKey openInterest = SeriesKey.Of(DataKind.OpenInterest, Btc);
+        var step = new TimeRange(point.Time, point.Time.AddMinutes(5));
+        await _store.WriteLiveAsync(LiveBatch.Empty with { OpenInterest = [(Btc, point)] }, CancellationToken.None);
+
+        await _store.WriteLiveAsync(LiveBatch.Empty with { OpenInterest = [(Btc, point)], Coverage = [(openInterest, step)] }, CancellationToken.None);
+
+        (await _store.ReadAsync(openInterest, step, CancellationToken.None)).OpenInterest.ShouldBe([point]);
+        (await _store.GetCoverageAsync(openInterest, CancellationToken.None)).Ranges.ShouldBe([step]);
+    }
+
     // Scenario «Соединение восстановилось»; the names of the streams are those of the metrics.
     [TestCase(LiveStream.Candles, "candles")]
     [TestCase(LiveStream.Trades, "trades")]

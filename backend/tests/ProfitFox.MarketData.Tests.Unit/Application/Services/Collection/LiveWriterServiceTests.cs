@@ -68,6 +68,19 @@ public class LiveWriterServiceTests
         _written.Single().Coverage.ShouldBe([(SeriesKey.Candles(Btc, Interval.OneMinute), new TimeRange(Minute, Minute.AddMinutes(1)))]);
     }
 
+    // Scenario «Точка открытого интереса»: the point of a step covers the step.
+    [Test]
+    public async Task Open_interest_point_goes_with_the_coverage_of_its_step()
+    {
+        var point = new OpenInterestPoint(Minute.AddMinutes(1), Value: 51234.567m);
+        _writer.OpenInterest(Btc, point);
+
+        await _writer.FlushAsync(withLiquidations: false, CancellationToken.None);
+
+        _written.Single().OpenInterest.ShouldBe([(Btc, point)]);
+        _written.Single().Coverage.ShouldBe([(SeriesKey.Of(DataKind.OpenInterest, Btc), new TimeRange(point.Time, point.Time.AddMinutes(5)))]);
+    }
+
     // Scenario «Формирующаяся свеча не хранится».
     [Test]
     public async Task Forming_candle_goes_to_the_board_only()
@@ -140,6 +153,21 @@ public class LiveWriterServiceTests
 
         _written[0].Coverage.ShouldBe([(Liquidations(Btc), Seconds(0, 5)), (Liquidations(Sol), Seconds(0, 5))]);
         _written[1].Coverage.ShouldBe([(Liquidations(Btc), Seconds(5, 10)), (Liquidations(Sol), Seconds(5, 10))]);
+    }
+
+    // Decision 4: after a new list of pairs the liquidations are covered for the pairs of the new subscription, the time before stays with the old ones.
+    [Test]
+    public async Task Liquidations_before_a_resubscription_stay_covered_for_the_pairs_of_then()
+    {
+        await _writer.StartAsync([Btc], subscribedAt: Minute, CancellationToken.None);
+
+        _writer.Lost(LiveStream.Liquidations, Minute.AddSeconds(3));
+        _writer.Subscribed([Btc, Sol]);
+        _writer.Restored(LiveStream.Liquidations, Minute.AddSeconds(5));
+        _time.SetUtcNow(Minute.AddSeconds(8));
+        await _writer.FlushAsync(withLiquidations: true, CancellationToken.None);
+
+        _written.Single().Coverage.ShouldBe([(Liquidations(Btc), Seconds(0, 3)), (Liquidations(Btc), Seconds(5, 8)), (Liquidations(Sol), Seconds(5, 8))]);
     }
 
     [Test]

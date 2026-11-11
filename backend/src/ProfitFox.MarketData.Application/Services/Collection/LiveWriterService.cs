@@ -13,7 +13,7 @@ namespace ProfitFox.MarketData.Application.Services.Collection;
 ///     The live lane (decisions 3 and 6): the streams hand over what they bring, and every <see cref="Tick" /> one batch goes to the store
 ///     in one transaction. A closed candle covers its minute; a minute of trades goes out <see cref="TradeMinutesService.CloseMargin" />
 ///     after its end without coverage; liquidations go every <see cref="LiquidationsEvery" />, covered by the time their stream was
-///     connected. A stream that is back gives its break. A batch that failed goes again with the next one. The handlers of the streams are
+///     connected; a point of open interest covers its step. A stream that is back gives its break. A batch that failed goes again with the next one. The handlers of the streams are
 ///     thread-safe.
 /// </summary>
 public sealed class LiveWriterService(IMarketStore store, TradeMinutesService trades, FormingBoardService board, ICollectorJournal journal, TimeProvider time)
@@ -23,12 +23,15 @@ public sealed class LiveWriterService(IMarketStore store, TradeMinutesService tr
     public static readonly TimeSpan LiquidationsEvery = TimeSpan.FromSeconds(5);
 
     private readonly ConcurrentQueue<(Instrument, Candle)> _closed = new ConcurrentQueue<(Instrument, Candle)>();
+    private static readonly TimeSpan Step = TimeSpan.FromMinutes(5);
+
+    private readonly ConcurrentQueue<(Instrument, OpenInterestPoint)> _openInterest = new ConcurrentQueue<(Instrument, OpenInterestPoint)>();
     private readonly ConcurrentQueue<(Instrument, LiquidationEvent)> _liquidations = new ConcurrentQueue<(Instrument, LiquidationEvent)>();
     private readonly ConcurrentQueue<StreamBreak> _breaks = new ConcurrentQueue<StreamBreak>();
 
     private readonly Lock _lock = new Lock();
     private readonly Dictionary<LiveStream, DateTimeOffset> _lostAt = [];
-    private readonly List<TimeRange> _liquidationsCovered = [];
+    private readonly List<(TimeRange Period, IReadOnlyList<Instrument> Pairs)> _liquidationsCovered = [];
     private IReadOnlyList<Instrument> _liquidationPairs = [];
     private DateTimeOffset? _liquidationsConnectedFrom;
 
@@ -55,6 +58,15 @@ public sealed class LiveWriterService(IMarketStore store, TradeMinutesService tr
         }
     }
 
+    /// <summary>The streams were subscribed again for a new list of pairs; the liquidations of <paramref name="liquidationPairs" /> are covered from now on.</summary>
+    public void Subscribed(IReadOnlyList<Instrument> liquidationPairs)
+    {
+        lock (_lock)
+        {
+            _liquidationPairs = liquidationPairs;
+        }
+    }
+
     /// <summary>A candle still forming goes to the board only.</summary>
     public void Forming(Instrument instrument, Candle candle)
     {
@@ -72,6 +84,12 @@ public sealed class LiveWriterService(IMarketStore store, TradeMinutesService tr
         {
             board.Update(instrument, current);
         }
+    }
+
+    /// <summary>A point of open interest covers its 5 minute step.</summary>
+    public void OpenInterest(Instrument instrument, OpenInterestPoint point)
+    {
+        _openInterest.Enqueue((instrument, point));
     }
 
     public void Liquidated(Instrument instrument, LiquidationEvent liquidation)
@@ -133,10 +151,12 @@ public sealed class LiveWriterService(IMarketStore store, TradeMinutesService tr
     internal async Task FlushAsync(bool withLiquidations, CancellationToken cancellationToken)
     {
         (Instrument Instrument, Candle Candle)[] candles = Drain(_closed);
+        (Instrument Instrument, OpenInterestPoint Point)[] openInterest = Drain(_openInterest);
         (Instrument Instrument, LiquidationEvent Liquidation)[] liquidations = withLiquidations ? Drain(_liquidations) : [];
         List<(SeriesKey, TimeRange)> coverage =
         [
-            .. candles.Select(item => (SeriesKey.Candles(item.Instrument, Interval.OneMinute), new TimeRange(item.Candle.OpenTime, item.Candle.OpenTime.AddMinutes(1))))
+            .. candles.Select(item => (SeriesKey.Candles(item.Instrument, Interval.OneMinute), new TimeRange(item.Candle.OpenTime, item.Candle.OpenTime.AddMinutes(1)))),
+            .. openInterest.Select(item => (SeriesKey.Of(DataKind.OpenInterest, item.Instrument), new TimeRange(item.Point.Time, item.Point.Time + Step)))
         ];
 
         if (withLiquidations)
@@ -144,7 +164,7 @@ public sealed class LiveWriterService(IMarketStore store, TradeMinutesService tr
             coverage.AddRange(TakeLiquidationCoverage());
         }
 
-        LiveBatch batch = Join(_failed, new LiveBatch(candles, trades.TakeClosed(), liquidations, coverage, Drain(_breaks)));
+        LiveBatch batch = Join(_failed, new LiveBatch(candles, trades.TakeClosed(), liquidations, openInterest, coverage, Drain(_breaks)));
 
         if (batch.Candles.Count + batch.TradeMinutes.Count + batch.Liquidations.Count + batch.Coverage.Count + batch.Breaks.Count == 0)
         {
@@ -181,6 +201,7 @@ public sealed class LiveWriterService(IMarketStore store, TradeMinutesService tr
             [.. first.Candles, .. then.Candles],
             [.. first.TradeMinutes, .. then.TradeMinutes],
             [.. first.Liquidations, .. then.Liquidations],
+            [.. first.OpenInterest, .. then.OpenInterest],
             [.. first.Coverage, .. then.Coverage],
             [.. first.Breaks, .. then.Breaks]);
     }
@@ -193,7 +214,7 @@ public sealed class LiveWriterService(IMarketStore store, TradeMinutesService tr
             CoverLiquidationsUntil(now);
             _liquidationsConnectedFrom = _liquidationsConnectedFrom is null ? null : now;
             (SeriesKey, TimeRange)[] coverage =
-                [.. _liquidationsCovered.SelectMany(period => _liquidationPairs.Select(pair => (SeriesKey.Of(DataKind.Liquidations, pair), period)))];
+                [.. _liquidationsCovered.SelectMany(covered => covered.Pairs.Select(pair => (SeriesKey.Of(DataKind.Liquidations, pair), covered.Period)))];
             _liquidationsCovered.Clear();
 
             return coverage;
@@ -204,7 +225,7 @@ public sealed class LiveWriterService(IMarketStore store, TradeMinutesService tr
     {
         if (_liquidationsConnectedFrom is { } from && until > from)
         {
-            _liquidationsCovered.Add(new TimeRange(from, until));
+            _liquidationsCovered.Add((new TimeRange(from, until), _liquidationPairs));
         }
     }
 }

@@ -155,6 +155,19 @@ public class BybitMarketDataTests
         _bybit.FundingRequests.Count.ShouldBe(3);
     }
 
+    // Decision 5: the open interest of the current step comes from the linear tickers, one request for all pairs.
+    [Test]
+    public async Task Open_interest_now_comes_from_one_request_of_the_linear_tickers()
+    {
+        _bybit.LinearTickers["BTCUSDT"] = "51234.567";
+        _bybit.LinearTickers["SOLUSDT"] = "8000000";
+
+        IReadOnlyList<(Instrument Instrument, decimal OpenInterest)> now = await _client.GetOpenInterestNowAsync(CancellationToken.None);
+
+        now.ShouldBe([(new Instrument(MarketCategory.Linear, "BTCUSDT"), 51234.567m), (Sol, 8000000m)], ignoreOrder: true);
+        _bybit.TickerRequests.ShouldBe(["linear"]);
+    }
+
     // Scenario «Bybit ответил 403» and the short pause of 429 and 10006.
     [TestCase("403", arg2: 600)]
     [TestCase("429", arg2: 30)]

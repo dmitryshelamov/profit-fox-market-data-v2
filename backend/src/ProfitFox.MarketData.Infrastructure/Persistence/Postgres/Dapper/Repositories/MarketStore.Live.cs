@@ -20,6 +20,7 @@ internal sealed partial class MarketStore
         await ExecuteAsync(connection, transaction, CandlesUpsert(batch), cancellationToken);
         await ExecuteAsync(connection, transaction, TradeMinutesUpsert(batch), cancellationToken);
         await ExecuteAsync(connection, transaction, LiquidationsInsert(batch), cancellationToken);
+        await ExecuteAsync(connection, transaction, OpenInterestInsert(batch), cancellationToken);
         await ExecuteAsync(connection, transaction, BreaksInsert(batch), cancellationToken);
         await CoverAsync(connection, transaction, batch.Coverage, cancellationToken);
 
@@ -108,6 +109,16 @@ internal sealed partial class MarketStore
         command.Parameters.AddWithValue("sides", batch.Liquidations.Select(item => item.Liquidation.Side.ToCode()).ToArray());
         command.Parameters.AddWithValue("prices", batch.Liquidations.Select(item => item.Liquidation.Price).ToArray());
         command.Parameters.AddWithValue("quantities", batch.Liquidations.Select(item => item.Liquidation.Quantity).ToArray());
+
+        return command;
+    }
+
+    private static NpgsqlCommand OpenInterestInsert(LiveBatch batch)
+    {
+        var command = new NpgsqlCommand("INSERT INTO open_interest SELECT * FROM unnest(@categories, @symbols, @times, @values) ON CONFLICT DO NOTHING");
+        AddPairs(command, batch.OpenInterest.Select(item => item.Instrument));
+        command.Parameters.AddWithValue("times", batch.OpenInterest.Select(item => item.Point.Time).ToArray());
+        command.Parameters.AddWithValue("values", batch.OpenInterest.Select(item => item.Point.Value).ToArray());
 
         return command;
     }

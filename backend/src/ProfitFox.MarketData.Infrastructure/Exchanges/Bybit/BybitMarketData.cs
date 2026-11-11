@@ -127,6 +127,16 @@ internal sealed class BybitMarketData(IBybitRestClient bybit, RestGate gate) : I
         return [.. points.OrderBy(point => point.Time)];
     }
 
+    /// <summary>Bybit reports the open interest of every linear ticker, as the scanner reads it.</summary>
+    public async Task<IReadOnlyList<(Instrument Instrument, decimal OpenInterest)>> GetOpenInterestNowAsync(CancellationToken cancellationToken)
+    {
+        BybitResponse<BybitLinearInverseTicker> tickers = await gate.SendAsync(
+            async token => Unwrap(await bybit.V5Api.ExchangeData.GetLinearInverseTickersAsync(Category.Linear, ct: token)),
+            cancellationToken);
+
+        return [.. tickers.List.Select(ticker => (new Instrument(MarketCategory.Linear, ticker.Symbol), ticker.OpenInterest!.Value))];
+    }
+
     /// <summary>Bybit pages funding history by time only: each page ends just before the oldest settlement of the one before.</summary>
     public async Task<IReadOnlyList<FundingRatePoint>> GetFundingAsync(Instrument instrument, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
