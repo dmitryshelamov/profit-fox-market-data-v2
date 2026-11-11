@@ -5,7 +5,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\ProfitFox.MarketData.Infrastructure\ProfitFox.MarketData.Infrastructure.csproj" />
+        <ProjectReference Include="..\ProfitFox.MarketData.Infrastructure\ProfitFox.MarketData.Infrastructure.csproj"/>
     </ItemGroup>
 
 </Project>
