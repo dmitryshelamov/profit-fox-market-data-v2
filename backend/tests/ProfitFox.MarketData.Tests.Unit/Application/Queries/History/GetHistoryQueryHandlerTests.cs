@@ -12,6 +12,8 @@ using ProfitFox.MarketData.Domain.Entities;
 using ProfitFox.MarketData.Domain.Entities.Enums;
 using ProfitFox.MarketData.Domain.Repositories;
 using ProfitFox.MarketData.Domain.ValueObjects;
+using ProfitFox.MarketData.Tests.Shared.Generators.Domain.Entity;
+using ProfitFox.MarketData.Tests.Shared.Generators.Domain.ValueObject;
 
 using Shouldly;
 
@@ -47,7 +49,7 @@ public class GetHistoryQueryHandlerTests
     {
         var period = new TimeRange(Time("2026-11-09T00:00:00Z"), Time("2026-11-10T00:00:00Z"));
         SeriesKey minutes = SeriesKey.Candles(Eth, Interval.OneMinute);
-        SeriesRows stored = SeriesRows.OfCandles([Candle(period.From)]);
+        SeriesRows stored = SeriesRows.OfCandles([CandleGenerator.Generate(period.From)]);
         _store.GetCoverageAsync(minutes, Arg.Any<CancellationToken>()).Returns(Coverage.Empty.Add(new TimeRange(period.From.AddDays(-1), period.To.AddDays(1))));
         _store.ReadAsync(minutes, period, Arg.Any<CancellationToken>()).Returns(stored);
 
@@ -74,7 +76,7 @@ public class GetHistoryQueryHandlerTests
     public void Candles_outside_the_coverage_are_loaded_and_stored_before_they_are_read()
     {
         TimeRange period = Day("2026-04-01");
-        Candle[] loaded = [Candle(period.From), Candle(period.From.AddHours(1))];
+        Candle[] loaded = [CandleGenerator.Generate(period.From), CandleGenerator.Generate(period.From.AddHours(1))];
         SeriesRows stored = SeriesRows.OfCandles(loaded);
         _exchange.GetCandlesAsync(Eth, Interval.OneHour, period.From, period.To, Arg.Any<CancellationToken>()).Returns(loaded);
         _store.GetCoverageAsync(Hours, Arg.Any<CancellationToken>()).Returns(Coverage.Empty, Coverage.Empty.Add(period));
@@ -140,7 +142,7 @@ public class GetHistoryQueryHandlerTests
     {
         var period = new TimeRange(Time("2026-11-10T12:00:00Z"), Time("2026-11-10T13:00:00Z"));
         SeriesKey series = SeriesKey.Of(DataKind.OpenInterest, Eth);
-        OpenInterestPoint[] points = [new OpenInterestPoint(period.From, Value: 10m)];
+        OpenInterestPoint[] points = [OpenInterestPointGenerator.Generate(period.From)];
         _exchange.GetOpenInterestAsync(Eth, period.From, Time("2026-11-10T12:30:00Z"), Arg.Any<CancellationToken>()).Returns(points);
         var handler = new GetHistoryQueryHandler(_exchange, _store, _pairs, new FakeTimeProvider(Time("2026-11-10T12:34:10Z")));
 
@@ -159,7 +161,7 @@ public class GetHistoryQueryHandlerTests
     {
         var period = new TimeRange(Time("2026-11-10T00:00:00Z"), Time("2026-11-11T00:00:00Z"));
         SeriesKey series = SeriesKey.Of(DataKind.Funding, Eth);
-        FundingRatePoint[] rates = [new FundingRatePoint(Time("2026-11-10T08:00:00Z"), Rate: 0.0001m)];
+        FundingRatePoint[] rates = [FundingRatePointGenerator.Generate(Time("2026-11-10T08:00:00Z"))];
         _exchange.GetFundingAsync(Eth, period.From, Now, Arg.Any<CancellationToken>()).Returns(rates);
 
         Get(series, period);
@@ -201,11 +203,6 @@ public class GetHistoryQueryHandlerTests
     private HistoryResult Get(SeriesKey series, TimeRange period)
     {
         return _handler.Handle(new GetHistoryQuery(series, period), CancellationToken.None).GetAwaiter().GetResult();
-    }
-
-    private static Candle Candle(DateTimeOffset openTime)
-    {
-        return new Candle(openTime, Open: 100m, High: 110m, Low: 90m, Close: 105m, Volume: 3m, Turnover: 315m);
     }
 
     private static TimeRange Day(string day)

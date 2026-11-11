@@ -1,7 +1,26 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\ProfitFox.MarketData.Application\ProfitFox.MarketData.Application.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CryptoClients.Net"/>
+        <PackageReference Include="Dapper"/>
+        <PackageReference Include="FluentMigrator.Runner.Postgres"/>
+        <PackageReference Include="Npgsql"/>
+        <PackageReference Include="Polly"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="ProfitFox.MarketData.Tests.Integration"/>
+        <InternalsVisibleTo Include="ProfitFox.MarketData.Tests.Unit"/>
+        <!-- NSubstitute makes its substitutes of internal ports of the adapters in this assembly. -->
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
     </ItemGroup>
 
 </Project>

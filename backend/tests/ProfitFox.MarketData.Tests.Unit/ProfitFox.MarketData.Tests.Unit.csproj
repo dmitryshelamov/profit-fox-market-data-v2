@@ -20,7 +20,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\ProfitFox.MarketData.Application\ProfitFox.MarketData.Application.csproj"/>
+        <ProjectReference Include="..\..\src\ProfitFox.MarketData.Infrastructure\ProfitFox.MarketData.Infrastructure.csproj"/>
+        <ProjectReference Include="..\ProfitFox.MarketData.Tests.Shared\ProfitFox.MarketData.Tests.Shared.csproj"/>
     </ItemGroup>
 
 </Project>

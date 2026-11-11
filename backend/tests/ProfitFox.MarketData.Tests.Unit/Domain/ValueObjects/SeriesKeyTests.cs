@@ -2,6 +2,7 @@ using System.Globalization;
 
 using ProfitFox.MarketData.Domain.Entities.Enums;
 using ProfitFox.MarketData.Domain.ValueObjects;
+using ProfitFox.MarketData.Tests.Shared.Generators.Domain.Entity.Enums;
 
 using Shouldly;
 
@@ -21,11 +22,12 @@ public class SeriesKeyTests
     [Test]
     public void Candle_series_keeps_its_interval()
     {
-        SeriesKey key = SeriesKey.Candles(Btc, Interval.OneHour);
+        Interval interval = IntervalGenerator.Generate();
+        SeriesKey key = SeriesKey.Candles(Btc, interval);
 
         key.Kind.ShouldBe(DataKind.Candles);
         key.Instrument.ShouldBe(Btc);
-        key.Interval.ShouldBe(Interval.OneHour);
+        key.Interval.ShouldBe(interval);
     }
 
     [TestCase(DataKind.OpenInterest)]
