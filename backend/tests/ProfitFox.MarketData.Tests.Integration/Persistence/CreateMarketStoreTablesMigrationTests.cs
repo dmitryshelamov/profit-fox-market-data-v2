@@ -17,7 +17,7 @@ public class CreateMarketStoreTablesMigrationTests
         IEnumerable<string> tables = await connection.QueryAsync<string>("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
 
         tables.ShouldBe(
-            ["candles", "collector_state", "coverage", "funding_rates", "liquidations", "open_interest", "pairs", "trade_flow_minutes", "VersionInfo"],
+            ["candles", "collector_state", "coverage", "funding_rates", "liquidations", "open_interest", "pairs", "stream_breaks", "trade_flow_minutes", "VersionInfo"],
             ignoreOrder: true);
     }
 

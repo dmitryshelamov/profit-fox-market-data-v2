@@ -19,7 +19,8 @@ public sealed class TradeMinutesService(TimeProvider time)
     private readonly Dictionary<(Instrument Instrument, DateTimeOffset OpenTime), TradeFlowMinute> _minutes = [];
     private DateTimeOffset _closedUntil = DateTimeOffset.MinValue;
 
-    public void Add(Instrument instrument, TradeEvent trade)
+    /// <summary>The minute of the trade with it added so far, or <c>null</c> when its minute already went out and the trade is dropped.</summary>
+    public TradeFlowMinute? Add(Instrument instrument, TradeEvent trade)
     {
         TradeFlowMinute started = TradeFlowMinute.Start(trade);
 
@@ -27,11 +28,14 @@ public sealed class TradeMinutesService(TimeProvider time)
         {
             if (started.OpenTime < _closedUntil)
             {
-                return;
+                return null;
             }
 
             (Instrument, DateTimeOffset) key = (instrument, started.OpenTime);
-            _minutes[key] = _minutes.TryGetValue(key, out TradeFlowMinute? minute) ? minute.Add(trade) : started;
+            TradeFlowMinute added = _minutes.TryGetValue(key, out TradeFlowMinute? minute) ? minute.Add(trade) : started;
+            _minutes[key] = added;
+
+            return added;
         }
     }
 

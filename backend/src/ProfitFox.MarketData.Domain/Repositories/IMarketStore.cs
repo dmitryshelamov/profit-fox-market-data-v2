@@ -15,4 +15,13 @@ public interface IMarketStore
     ///     in one transaction.
     /// </summary>
     Task ReplaceAsync(SeriesKey series, TimeRange period, SeriesRows rows, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Writes the batch of the live lane in one transaction: a candle or a minute of trades replaces the stored one of its minute, a
+    ///     liquidation or a break already stored stays once, and the periods of the batch join the coverage of their series.
+    /// </summary>
+    Task WriteLiveAsync(LiveBatch batch, CancellationToken cancellationToken);
+
+    /// <summary>The end of the latest stored minute candle of any pair, or <c>null</c> without one.</summary>
+    Task<DateTimeOffset?> GetLastMinuteEndAsync(CancellationToken cancellationToken);
 }

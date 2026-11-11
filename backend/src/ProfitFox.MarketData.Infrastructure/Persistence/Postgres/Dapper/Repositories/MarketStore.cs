@@ -13,7 +13,7 @@ namespace ProfitFox.MarketData.Infrastructure.Persistence.Postgres.Dapper.Reposi
 ///     The series in their tables and their coverage in <c>coverage</c>. A replace of a period deletes the stored rows of the period, adds the
 ///     new ones and joins the period into the coverage in one transaction, which an advisory lock of the series keeps one at a time.
 /// </summary>
-internal sealed class MarketStore(NpgsqlDataSource dataSource) : IMarketStore
+internal sealed partial class MarketStore(NpgsqlDataSource dataSource) : IMarketStore
 {
     public async Task<Coverage> GetCoverageAsync(SeriesKey series, CancellationToken cancellationToken)
     {
@@ -90,11 +90,7 @@ internal sealed class MarketStore(NpgsqlDataSource dataSource) : IMarketStore
         string interval = series.Interval?.ToCode() ?? "";
 
         await connection.ExecuteAsync(
-            new CommandDefinition(
-                "SELECT pg_advisory_xact_lock(hashtext(@Category || '/' || @Symbol || '/' || @Kind || '/' || @Interval))",
-                new { Category = category, series.Instrument.Symbol, Kind = series.Kind.ToCode(), Interval = interval },
-                transaction,
-                cancellationToken: cancellationToken));
+            new CommandDefinition("SELECT pg_advisory_xact_lock(hashtext(@Key))", new { Key = LockKey(series) }, transaction, cancellationToken: cancellationToken));
         await connection.ExecuteAsync(
             new CommandDefinition(
                 $"DELETE FROM {table.Name} WHERE {table.Key} AND {table.Time} >= @From AND {table.Time} < @To",
@@ -130,6 +126,12 @@ internal sealed class MarketStore(NpgsqlDataSource dataSource) : IMarketStore
         }
 
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    /// <summary>The key of the advisory lock that keeps the writes of the coverage of a series one at a time.</summary>
+    private static string LockKey(SeriesKey series)
+    {
+        return $"{series.Instrument.Category.ToCode()}/{series.Instrument.Symbol}/{series.Kind.ToCode()}/{series.Interval?.ToCode() ?? ""}";
     }
 
     private static async Task<Coverage> ReadCoverageAsync(
