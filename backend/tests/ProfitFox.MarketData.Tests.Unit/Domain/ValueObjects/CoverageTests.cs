@@ -92,6 +92,17 @@ public class CoverageTests
         Coverage.Empty.Add(Hours(from: 8, to: 20)).Missing(Hours(from: 2, to: 5)).ShouldBe([Hours(from: 2, to: 5)]);
     }
 
+    [Test]
+    public void Coverage_within_a_period_is_cut_to_it()
+    {
+        Coverage.Empty.Add(Hours(from: 0, to: 1))
+            .Add(Hours(from: 2, to: 4))
+            .Add(Hours(from: 8, to: 20))
+            .Add(Hours(from: 22, to: 23))
+            .Within(Hours(from: 3, to: 10))
+            .ShouldBe([Hours(from: 3, to: 4), Hours(from: 8, to: 10)]);
+    }
+
     // Scenario «Разрыв ещё не закрыт»: live minutes before and after a break leave the break uncovered until it is loaded.
     [Test]
     public void Break_between_live_minutes_stays_uncovered()

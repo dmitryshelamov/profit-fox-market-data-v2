@@ -6,7 +6,9 @@
 
     <ItemGroup>
         <PackageReference Include="coverlet.collector"/>
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+        <PackageReference Include="NSubstitute"/>
         <PackageReference Include="NUnit"/>
         <PackageReference Include="NUnit.Analyzers"/>
         <PackageReference Include="NUnit3TestAdapter"/>
@@ -18,7 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\ProfitFox.MarketData.Domain\ProfitFox.MarketData.Domain.csproj"/>
+        <ProjectReference Include="..\..\src\ProfitFox.MarketData.Application\ProfitFox.MarketData.Application.csproj"/>
     </ItemGroup>
 
 </Project>
