@@ -18,7 +18,7 @@ public interface IMarketStore
 
     /// <summary>
     ///     Writes the batch of the live lane in one transaction: a candle or a minute of trades replaces the stored one of its minute, a
-    ///     liquidation or a break already stored stays once, and the periods of the batch join the coverage of their series.
+    ///     liquidation, a point of open interest or a break already stored stays once, and the periods of the batch join the coverage of their series.
     /// </summary>
     Task WriteLiveAsync(LiveBatch batch, CancellationToken cancellationToken);
 

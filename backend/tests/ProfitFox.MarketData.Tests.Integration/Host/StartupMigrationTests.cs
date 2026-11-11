@@ -46,10 +46,13 @@ public class StartupMigrationTests
         (await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM \"VersionInfo\"")).ShouldBe(migrations);
     }
 
+    // The collector runs in the host: Bybit is a closed local port, so no test reaches the real exchange.
     private static WebApplicationFactory<Program> Service(string connectionString)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(host => host
             .UseEnvironment("Testing")
-            .UseSetting("ConnectionStrings:MarketStore", connectionString));
+            .UseSetting("ConnectionStrings:MarketStore", connectionString)
+            .UseSetting("Bybit:RestAddress", "http://127.0.0.1:9")
+            .UseSetting("Bybit:SocketAddress", "ws://127.0.0.1:9"));
     }
 }

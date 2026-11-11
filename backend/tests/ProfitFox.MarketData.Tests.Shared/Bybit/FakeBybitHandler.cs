@@ -54,6 +54,12 @@ public class FakeBybitHandler : HttpMessageHandler
     /// <summary>The <c>[startTime, endTime]</c> of every funding history request, in order.</summary>
     public RequestLog<(DateTimeOffset Start, DateTimeOffset End)> FundingRequests { get; } = new RequestLog<(DateTimeOffset Start, DateTimeOffset End)>();
 
+    /// <summary>The open interest in coins the linear tickers of Bybit report now, by symbol.</summary>
+    public Dictionary<string, string> LinearTickers { get; } = [];
+
+    /// <summary>The category of every tickers request, in order.</summary>
+    public RequestLog<string> TickerRequests { get; } = new RequestLog<string>();
+
     /// <summary>How many HTTP requests the app made, answered or not.</summary>
     public int Requests => Volatile.Read(ref _requests);
 
@@ -107,6 +113,7 @@ public class FakeBybitHandler : HttpMessageHandler
             "/v5/market/kline" => Kline(query),
             "/v5/market/open-interest" => OpenInterestOf(query),
             "/v5/market/funding/history" => FundingOf(query),
+            "/v5/market/tickers" => TickersOf(query["category"]!),
             _ => throw new InvalidOperationException($"Unexpected Bybit request {request.RequestUri}")
         };
         var json = $$"""{"retCode":0,"retMsg":"OK","result":{{result}},"retExtInfo":{},"time":0}""";
@@ -158,6 +165,15 @@ public class FakeBybitHandler : HttpMessageHandler
             .Select(candle => $"[\"{candle.OpenTime.ToUnixTimeMilliseconds()}\",{string.Join(",", candle.Row.Skip(1).Select(value => $"\"{value}\""))}]");
 
         return $$"""{"list":[{{string.Join(",", items)}}]}""";
+    }
+
+    private string TickersOf(string category)
+    {
+        TickerRequests.Record(category);
+        IEnumerable<string> items = LinearTickers.Select(ticker =>
+            $$"""{"symbol":"{{ticker.Key}}","bid1Price":"1","bid1Size":"1","ask1Price":"1","ask1Size":"1","lastPrice":"1","prevPrice24h":"1","price24hPcnt":"0","highPrice24h":"1","lowPrice24h":"1","turnover24h":"0","volume24h":"0","markPrice":"1","indexPrice":"1","openInterest":"{{ticker.Value}}","openInterestValue":"0","fundingRate":"0","nextFundingTime":"0","deliveryTime":"0","deliveryFeeRate":"","predictedDeliveryPrice":"","basisRate":"","basis":"","prevPrice1h":"1"}""");
+
+        return $$"""{"category":"{{category}}","list":[{{string.Join(",", items)}}]}""";
     }
 
     // Newest first in the inclusive [startTime, endTime], a page at a time; the cursor is the offset of the next page.

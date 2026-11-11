@@ -22,6 +22,9 @@ public interface IExchangeMarketData
     /// <summary>The 5 minute points of open interest of a linear pair in <c>[from, to)</c>, oldest first.</summary>
     Task<IReadOnlyList<OpenInterestPoint>> GetOpenInterestAsync(Instrument instrument, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
 
+    /// <summary>The open interest of every linear pair now, in coins of the contract, from one request of the tickers.</summary>
+    Task<IReadOnlyList<(Instrument Instrument, decimal OpenInterest)>> GetOpenInterestNowAsync(CancellationToken cancellationToken);
+
     /// <summary>The funding settlements of a linear pair in <c>[from, to)</c>, oldest first.</summary>
     Task<IReadOnlyList<FundingRatePoint>> GetFundingAsync(Instrument instrument, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
 }
